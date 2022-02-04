@@ -116,6 +116,7 @@ pub fn detect_scene_changes<R: Read, T: Pixel>(
     dec: &mut Decoder<R>,
     opts: DetectionOptions,
     progress_callback: Option<ProgressCallback>,
+    sender: std::sync::mpsc::Sender<usize>,
 ) -> DetectionResults {
     assert!(opts.lookahead_distance >= 1);
 
@@ -163,6 +164,7 @@ pub fn detect_scene_changes<R: Read, T: Pixel>(
             )
         {
             keyframes.insert(frameno as u64);
+            sender.send(frameno).unwrap();
         };
 
         if frameno > 0 {
