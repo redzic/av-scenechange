@@ -69,6 +69,7 @@ pub type ProgressCallback = Box<dyn Fn(usize, usize)>;
 pub fn new_detector<R: Read, T: Pixel>(
     dec: &mut Decoder<R>,
     opts: DetectionOptions,
+    threshold: f64,
 ) -> SceneChangeDetector<T> {
     let video_details = y4m::get_video_details(dec);
     let mut config =
@@ -94,7 +95,7 @@ pub fn new_detector<R: Read, T: Pixel>(
     config.chroma_sample_position = video_details.chroma_sample_position;
 
     let sequence = Arc::new(Sequence::new(&config));
-    SceneChangeDetector::new(
+    SceneChangeDetector::with_threshold(
         config,
         CpuFeatureLevel::default(),
         if opts.detect_flashes {
@@ -103,6 +104,7 @@ pub fn new_detector<R: Read, T: Pixel>(
             1
         },
         sequence,
+        threshold,
     )
 }
 
@@ -116,10 +118,11 @@ pub fn detect_scene_changes<R: Read, T: Pixel>(
     dec: &mut Decoder<R>,
     opts: DetectionOptions,
     progress_callback: Option<ProgressCallback>,
+    threshold: f64,
 ) -> DetectionResults {
     assert!(opts.lookahead_distance >= 1);
 
-    let mut detector = new_detector(dec, opts);
+    let mut detector = new_detector(dec, opts, threshold);
     let video_details = y4m::get_video_details(dec);
     let mut frame_queue = BTreeMap::new();
     let mut keyframes = BTreeSet::new();
