@@ -1,7 +1,10 @@
-use std::io::Read;
+use std::{io::Read, marker::PhantomData};
 
-use rav1e::prelude::{ChromaSamplePosition, ChromaSampling, Frame, Pixel, Rational};
+use rav1e::prelude::{
+    ChromaSamplePosition, ChromaSampling, Frame, Pixel, Plane, PlaneConfig, PlaneData, Rational,
+};
 
+#[allow(unused)]
 pub(crate) fn get_video_details<R: Read>(dec: &y4m::Decoder<R>) -> VideoDetails {
     let width = dec.get_width();
     let height = dec.get_height();
@@ -21,6 +24,7 @@ pub(crate) fn get_video_details<R: Read>(dec: &y4m::Decoder<R>) -> VideoDetails 
     }
 }
 
+#[allow(unused)]
 const fn map_y4m_color_space(
     color_space: y4m::Colorspace,
 ) -> (ChromaSampling, ChromaSamplePosition) {
@@ -37,6 +41,7 @@ const fn map_y4m_color_space(
     }
 }
 
+#[allow(unused)]
 pub fn read_video_frame<R: Read, T: Pixel>(
     dec: &mut y4m::Decoder<R>,
     cfg: &VideoDetails,
@@ -47,19 +52,39 @@ pub fn read_video_frame<R: Read, T: Pixel>(
     const FRAME_MARGIN: usize = 16 + SUBPEL_FILTER_SIZE;
     const LUMA_PADDING: usize = SB_SIZE + FRAME_MARGIN;
 
-    let bytes = dec.get_bytes_per_sample();
+    let _bytes = dec.get_bytes_per_sample();
     dec.read_frame()
         .map(|frame| {
-            let mut f: Frame<T> =
-                Frame::new_with_padding(cfg.width, cfg.height, cfg.chroma_sampling, LUMA_PADDING);
+            // let mut f: Frame<T> =
+            //     Frame::new_with_padding(cfg.width, cfg.height, cfg.chroma_sampling, LUMA_PADDING);
 
-            let (chroma_width, _) = cfg
-                .chroma_sampling
-                .get_chroma_dimensions(cfg.width, cfg.height);
+            // f.planes[0].copy_from_raw_u8(frame.get_y_plane(), cfg.width * bytes, bytes);
 
-            f.planes[0].copy_from_raw_u8(frame.get_y_plane(), cfg.width * bytes, bytes);
-            f.planes[1].copy_from_raw_u8(frame.get_u_plane(), chroma_width * bytes, bytes);
-            f.planes[2].copy_from_raw_u8(frame.get_v_plane(), chroma_width * bytes, bytes);
+            let y_plane = frame.get_y_plane();
+            let f = Frame {
+                planes: [
+                    // Plane::new(cfg.width, cfg.height, 0, 0, LUMA_PADDING, LUMA_PADDING),
+                    Plane {
+                        cfg: PlaneConfig::new(
+                            cfg.width,
+                            cfg.height,
+                            0,
+                            0,
+                            0,
+                            0,
+                            std::mem::size_of::<T>(),
+                        ),
+                        data: PlaneData {
+                            ptr: unsafe { std::mem::transmute(y_plane.as_ptr()) },
+                            _marker: PhantomData,
+                            len: y_plane.len(),
+                        },
+                    },
+                    Plane::<T>::new(0, 0, 0, 0, 0, 0),
+                    Plane::<T>::new(0, 0, 0, 0, 0, 0),
+                ],
+            };
+
             f
         })
         .map_err(|e| e.into())

@@ -1,8 +1,6 @@
-use std::{
-    fs::File,
-    io::{self, BufReader, Read, Write},
-};
+use std::{fs::File, io::Write};
 
+use av_metrics_decoders::{Decoder, FfmpegDecoder};
 use av_scenechange::{detect_scene_changes, DetectionOptions, SceneDetectionSpeed};
 use clap::{Arg, Command};
 
@@ -62,11 +60,11 @@ fn main() {
                 .takes_value(true),
         )
         .get_matches();
-    let input = match matches.value_of("INPUT").unwrap() {
-        "-" => Box::new(io::stdin()) as Box<dyn Read>,
-        f => Box::new(File::open(&f).unwrap()) as Box<dyn Read>,
-    };
-    let mut reader = BufReader::new(input);
+    // let input = match matches.value_of("INPUT").unwrap() {
+    //     "-" => Box::new(io::stdin()) as Box<dyn Read>,
+    //     f => Box::new(File::open(&f).unwrap()) as Box<dyn Read>,
+    // };
+    // let mut reader = BufReader::new(input);
 
     let mut opts = DetectionOptions {
         detect_flashes: !matches.is_present("NO_FLASH_DETECT"),
@@ -89,12 +87,14 @@ fn main() {
         };
     }
 
-    let mut dec = y4m::Decoder::new(&mut reader).unwrap();
+    let mut ctx = FfmpegDecoder::get_ctx(matches.value_of("INPUT").unwrap().as_ref());
+    let mut dec = FfmpegDecoder::new(&mut ctx).unwrap();
+
     let bit_depth = dec.get_bit_depth();
     let results = if bit_depth == 8 {
-        detect_scene_changes::<_, u8>(&mut dec, opts, None, None)
+        detect_scene_changes::<u8>(&mut dec, opts, None, None)
     } else {
-        detect_scene_changes::<_, u16>(&mut dec, opts, None, None)
+        detect_scene_changes::<u16>(&mut dec, opts, None, None)
     };
     print!("{}", serde_json::to_string(&results).unwrap());
 
