@@ -102,6 +102,10 @@ pub fn new_detector<T: Pixel>(
     )
 }
 
+fn align_power_of_two_and_shift(x: usize, n: usize) -> usize {
+    (x + (1 << n) - 1) >> n
+}
+
 /// Runs through a y4m video clip,
 /// detecting where scene changes occur.
 /// This is adjustable based on the `opts` parameters.
@@ -126,7 +130,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
     let tmp = 0;
 
-    // TODO check padding requirements for normal scene detection mode/estimate_inter_costs
     let empty_plane = || Plane::<T> {
         cfg: PlaneConfig {
             alloc_height: 0,
@@ -143,7 +146,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         data: PlaneData {
             _marker: PhantomData,
             len: 0,
-            ptr: unsafe { NonNull::new_unchecked(std::mem::transmute(addr_of!(tmp))) },
+            ptr: unsafe { NonNull::new(std::mem::transmute(addr_of!(tmp))).unwrap() },
         },
     };
 
@@ -151,16 +154,23 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     let video_details = dec.get_video_details();
 
     const SB_SIZE_LOG2: u32 = 6;
-    let alloc_height = if opts.analysis_speed == SceneDetectionSpeed::Fast {
-        video_details.height as u32
+    let (alloc_height, stride) = if opts.analysis_speed == SceneDetectionSpeed::Fast {
+        (video_details.height as u32, video_details.width as u32)
     } else {
-        ((video_details.height as u32 + (1 << SB_SIZE_LOG2) - 1) >> SB_SIZE_LOG2) << SB_SIZE_LOG2
+        (
+            (align_power_of_two_and_shift(video_details.height, SB_SIZE_LOG2 as usize)
+                << SB_SIZE_LOG2) as u32,
+            (align_power_of_two_and_shift(video_details.width, SB_SIZE_LOG2 as usize)
+                << SB_SIZE_LOG2) as u32,
+        )
     };
+
+    // TODO: handle 422
 
     let plane_cfg_luma: PlaneConfig = PlaneConfig {
         alloc_height: alloc_height as usize,
         height: video_details.height,
-        stride: video_details.width,
+        stride: stride as usize,
         width: video_details.width,
         xdec: 0,
         xorigin: 0,
@@ -184,7 +194,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
                                 cfg: plane_cfg_luma.clone(),
                                 data: PlaneData {
                                     _marker: PhantomData,
-                                    len: v.data(0).len(),
+                                    len: stride as usize * video_details.height,
                                     ptr: {
                                         NonNull::new(std::mem::transmute(v.data(0).as_ptr()))
                                             .unwrap()
@@ -211,10 +221,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
     // Fill initial spots.
     for i in 0..opts.lookahead_distance + 2 {
-        v.push((
-            i,
-            frame::Video::new(format, video_details.width as u32, alloc_height),
-        ));
+        v.push((i, frame::Video::new(format, stride, alloc_height)));
     }
 
     let start_time = Instant::now();
