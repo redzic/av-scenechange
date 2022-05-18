@@ -82,7 +82,7 @@ pub fn new_detector<T: Pixel>(
     config.height = video_details.height;
     config.bit_depth = video_details.bit_depth;
     config.time_base = unsafe { std::mem::transmute(video_details.time_base) };
-    config.chroma_sampling = video_details.chroma_sampling;
+    config.chroma_sampling = unsafe { std::mem::transmute(video_details.chroma_sampling) };
     // This value does not seem to be needed, so just initialize it
     // to this (since video_details no longer contains this)
     config.chroma_sample_position = ChromaSamplePosition::Colocated;
