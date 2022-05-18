@@ -150,8 +150,15 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     let mut detector = new_detector::<T>(dec, opts);
     let video_details = dec.get_video_details();
 
+    const SB_SIZE_LOG2: u32 = 6;
+    let alloc_height = if opts.analysis_speed == SceneDetectionSpeed::Fast {
+        video_details.height as u32
+    } else {
+        ((video_details.height as u32 + (1 << SB_SIZE_LOG2) - 1) >> SB_SIZE_LOG2) << SB_SIZE_LOG2
+    };
+
     let plane_cfg_luma: PlaneConfig = PlaneConfig {
-        alloc_height: video_details.height,
+        alloc_height: alloc_height as usize,
         height: video_details.height,
         stride: video_details.width,
         width: video_details.width,
@@ -206,11 +213,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     for i in 0..opts.lookahead_distance + 2 {
         v.push((
             i,
-            frame::Video::new(
-                format,
-                video_details.width as u32,
-                video_details.height as u32,
-            ),
+            frame::Video::new(format, video_details.width as u32, alloc_height),
         ));
     }
 
