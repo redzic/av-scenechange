@@ -613,9 +613,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
+checksum = "7b10983b38c53aebdf33f542c6275b0f58a238129d00c4ae0e6fb59738d783ca"
 
 [[package]]
 name = "os_str_bytes"
@@ -698,7 +698,7 @@ dependencies = [
 [[package]]
 name = "rav1e"
 version = "0.5.0"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#fe5dec598be545869ab07b27e22fc05574190d54"
+source = "git+https://github.com/redzic/rav1e?branch=zerocopy#6ee62ee6a7b0e57ab760dab2628cc44db021ed6a"
 dependencies = [
  "arbitrary",
  "arg_enum_proc_macro",
@@ -758,9 +758,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.5.5"
+version = "1.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a11647b6b25ff05a515cb92c365cec08801e83423a235b51e231e1808747286"
+checksum = "d83f127d94bdbcda4c8cc2e50f6f84f4b611f69c902699ca385a39c3a75f9ff1"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -769,9 +769,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.25"
+version = "0.6.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
+checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 
 [[package]]
 name = "rust_hawktracer"
@@ -1034,7 +1034,7 @@ checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
 [[package]]
 name = "v_frame"
 version = "0.2.5"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#fe5dec598be545869ab07b27e22fc05574190d54"
+source = "git+https://github.com/redzic/rav1e?branch=zerocopy#6ee62ee6a7b0e57ab760dab2628cc44db021ed6a"
 dependencies = [
  "cfg-if",
  "new_debug_unreachable",
@@ -1054,7 +1054,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 [[package]]
 name = "vergen"
 version = "3.0.4"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#fe5dec598be545869ab07b27e22fc05574190d54"
+source = "git+https://github.com/redzic/rav1e?branch=zerocopy#6ee62ee6a7b0e57ab760dab2628cc44db021ed6a"
 dependencies = [
  "bitflags",
  "chrono",

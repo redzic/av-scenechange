@@ -190,7 +190,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
                 Arc::new(Frame::<T> {
                     planes: [
                         unsafe {
-                            std::mem::transmute(Plane::<T> {
+                            Plane::<T> {
                                 cfg: plane_cfg_luma.clone(),
                                 data: PlaneData {
                                     _marker: PhantomData,
@@ -200,7 +200,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
                                             .unwrap()
                                     },
                                 },
-                            })
+                            }
                         },
                         empty_plane(),
                         empty_plane(),
