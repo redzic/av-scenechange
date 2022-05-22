@@ -242,6 +242,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     assert!(dec.receive_frame_with_alloc::<T>(&mut v[opts.lookahead_distance + 1].1));
 
     frame_set = convert_fq_to_vec(&*v);
+    // TODO double check that order of this is correct
     if detector.analyze_next_frame(
         &*frame_set,
         frameno as u64,
@@ -267,8 +268,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             break;
         }
 
-        frameno += 1;
-
         frame_set = convert_fq_to_vec(&*v);
         if detector.analyze_next_frame(
             &*frame_set,
@@ -277,6 +276,8 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         ) {
             keyframes.push(frameno);
         };
+
+        frameno += 1;
 
         if let Some(progress_fn) = progress_callback {
             progress_fn(frameno, keyframes.len());
