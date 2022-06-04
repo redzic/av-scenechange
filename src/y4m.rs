@@ -1,7 +1,14 @@
 use std::{io::Read, marker::PhantomData};
 
 use rav1e::prelude::{
-    ChromaSamplePosition, ChromaSampling, Frame, Pixel, Plane, PlaneConfig, PlaneData, Rational,
+    ChromaSamplePosition,
+    ChromaSampling,
+    Frame,
+    Pixel,
+    Plane,
+    PlaneConfig,
+    PlaneData,
+    Rational,
 };
 
 #[allow(unused)]
@@ -55,15 +62,9 @@ pub fn read_video_frame<R: Read, T: Pixel>(
     let _bytes = dec.get_bytes_per_sample();
     dec.read_frame()
         .map(|frame| {
-            // let mut f: Frame<T> =
-            //     Frame::new_with_padding(cfg.width, cfg.height, cfg.chroma_sampling, LUMA_PADDING);
-
-            // f.planes[0].copy_from_raw_u8(frame.get_y_plane(), cfg.width * bytes, bytes);
-
             let y_plane = frame.get_y_plane();
-            let f = Frame {
+            Frame {
                 planes: [
-                    // Plane::new(cfg.width, cfg.height, 0, 0, LUMA_PADDING, LUMA_PADDING),
                     Plane {
                         cfg: PlaneConfig::new(
                             cfg.width,
@@ -83,9 +84,7 @@ pub fn read_video_frame<R: Read, T: Pixel>(
                     Plane::<T>::new(0, 0, 0, 0, 0, 0),
                     Plane::<T>::new(0, 0, 0, 0, 0, 0),
                 ],
-            };
-
-            f
+            }
         })
         .map_err(|e| e.into())
 }

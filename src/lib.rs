@@ -231,7 +231,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         frame_queue
             .iter()
             .map(|(_, v)| unsafe {
-                Arc::new(Frame::<T> {
+                ManuallyDrop::new(Arc::new(Frame::<T> {
                     planes: [
                         {
                             Plane::<T> {
@@ -249,19 +249,16 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
                         empty_plane(),
                         empty_plane(),
                     ],
-                })
+                }))
             })
             .collect::<Vec<_>>()
     };
 
-    // let fv2 = || vref.iter().map(|x| x).collect::<Vec<_>>();
-
     let start_time = Instant::now();
 
-    for i in 0..=opts.lookahead_distance {
-        // TODO: Handle edge case where number of frames is less than lookahead
-        // so this assert fails.
-        assert!(dec.receive_frame_with_alloc::<T>(&mut v[i].1));
+    // TODO: Handle edge case where number of frames is less than lookahead
+    for (_, v) in v.iter_mut().take(opts.lookahead_distance + 1) {
+        assert!(dec.receive_frame_with_alloc::<T>(v));
     }
 
     frameno += 1;
@@ -276,7 +273,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     // frame_set = convert_fq_to_vec(&*v);
     // TODO double check that order of this is correct
     let x1 = fill_vec(&v);
-    let y1 = x1.iter().collect::<Vec<_>>();
+    let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
     if detector.analyze_next_frame(
         &*y1,
@@ -306,7 +303,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         // frame_set = convert_fq_to_vec(&*v);
 
         let x1 = fill_vec(&v);
-        let y1 = x1.iter().collect::<Vec<_>>();
+        let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
         if detector.analyze_next_frame(
             &*y1,
             frameno as u64,
@@ -328,7 +325,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         // frame_set = convert_fq_to_vec(&*v);
 
         let x1 = fill_vec(&v);
-        let y1 = x1.iter().collect::<Vec<_>>();
+        let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
         if detector.analyze_next_frame(
             &*y1,
@@ -352,7 +349,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialOrd, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Eq)]
 pub enum SceneDetectionSpeed {
     /// Fastest scene detection using pixel-wise comparison
     Fast,
