@@ -74,7 +74,7 @@ dependencies = [
  "num-traits",
  "rayon",
  "thiserror",
- "v_frame",
+ "v_frame 0.2.5 (git+https://github.com/redzic/rav1e?branch=zerocopy)",
 ]
 
 [[package]]
@@ -698,7 +698,6 @@ dependencies = [
 [[package]]
 name = "rav1e"
 version = "0.5.0"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#8f8e98fc558fd7e562b5ecb3c2bdc44216129143"
 dependencies = [
  "arbitrary",
  "arg_enum_proc_macro",
@@ -728,7 +727,7 @@ dependencies = [
  "simd_helpers",
  "system-deps",
  "thiserror",
- "v_frame",
+ "v_frame 0.2.5",
  "vergen",
 ]
 
@@ -1034,6 +1033,19 @@ checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
 [[package]]
 name = "v_frame"
 version = "0.2.5"
+dependencies = [
+ "cfg-if",
+ "new_debug_unreachable",
+ "noop_proc_macro",
+ "num-derive",
+ "num-traits",
+ "rayon",
+ "rust_hawktracer",
+]
+
+[[package]]
+name = "v_frame"
+version = "0.2.5"
 source = "git+https://github.com/redzic/rav1e?branch=zerocopy#8f8e98fc558fd7e562b5ecb3c2bdc44216129143"
 dependencies = [
  "cfg-if",
@@ -1054,7 +1066,6 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 [[package]]
 name = "vergen"
 version = "3.0.4"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#8f8e98fc558fd7e562b5ecb3c2bdc44216129143"
 dependencies = [
  "bitflags",
  "chrono",

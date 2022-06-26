@@ -1,4 +1,4 @@
-use std::{io::Read, marker::PhantomData};
+use std::io::Read;
 
 use rav1e::prelude::{
     ChromaSamplePosition,
@@ -7,7 +7,6 @@ use rav1e::prelude::{
     Pixel,
     Plane,
     PlaneConfig,
-    PlaneData,
     Rational,
 };
 
@@ -75,11 +74,13 @@ pub fn read_video_frame<R: Read, T: Pixel>(
                             0,
                             std::mem::size_of::<T>(),
                         ),
-                        data: PlaneData {
-                            ptr: unsafe { std::mem::transmute(y_plane.as_ptr()) },
-                            _marker: PhantomData,
-                            len: y_plane.len(),
-                        },
+                        // data: PlaneData {
+                        //     ptr: unsafe { std::mem::transmute(y_plane.as_ptr()) },
+                        //     _marker: PhantomData,
+                        //     len: y_plane.len(),
+                        // },
+                        // data: PlaneData::new_ref(y_plane),
+                        data: todo!(),
                     },
                     Plane::<T>::new(0, 0, 0, 0, 0, 0),
                     Plane::<T>::new(0, 0, 0, 0, 0, 0),

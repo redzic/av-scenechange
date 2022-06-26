@@ -1,12 +1,6 @@
 mod y4m;
 
-use std::{
-    marker::PhantomData,
-    mem::ManuallyDrop,
-    ptr::{addr_of, NonNull},
-    sync::Arc,
-    time::Instant,
-};
+use std::{mem::ManuallyDrop, ptr::addr_of, sync::Arc, time::Instant};
 
 use av_metrics_decoders::{Decoder, FfmpegDecoder};
 use ffmpeg::frame;
@@ -144,11 +138,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             yorigin: 0,
             ypad: 0,
         },
-        data: PlaneData {
-            _marker: PhantomData,
-            len: 0,
-            ptr: unsafe { NonNull::new(std::mem::transmute(addr_of!(tmp))).unwrap() },
-        },
+        data: unsafe { PlaneData::new_ref(std::slice::from_raw_parts(addr_of!(tmp).cast(), 0)) },
     };
 
     let mut detector = new_detector::<T>(dec, opts);
@@ -183,39 +173,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
     let format = dec.get_decoder_format();
 
-    // TODO find more efficient way to do this
-    // let convert_fq_to_vec = |frame_queue: &[(usize, frame::Video)]| {
-    //     let frame_set = frame_queue
-    //         .iter()
-    //         .map(|(_, v)| {
-    //             // Do not call destructor here
-    //             unsafe {
-    //                 *ManuallyDrop::new(Arc::new(Frame::<T> {
-    //                     planes: [
-    //                         {
-    //                             Plane::<T> {
-    //                                 cfg: plane_cfg_luma.clone(),
-    //                                 data: PlaneData {
-    //                                     _marker: PhantomData,
-    //                                     len: stride as usize * video_details.height,
-    //                                     ptr: {
-    //                                         NonNull::new(std::mem::transmute(v.data(0).as_ptr()))
-    //                                             .unwrap()
-    //                                     },
-    //                                 },
-    //                             }
-    //                         },
-    //                         empty_plane(),
-    //                         empty_plane(),
-    //                     ],
-    //                 }))
-    //             }
-    //         })
-    //         .collect::<Vec<_>>();
-
-    //     frame_set
-    // };
-
     // Frame index, frame allocation
     let mut v = Vec::<(usize, frame::Video)>::new();
     let mut keyframes: Vec<usize> = vec![0];
@@ -236,14 +193,10 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
                         {
                             Plane::<T> {
                                 cfg: plane_cfg_luma.clone(),
-                                data: PlaneData {
-                                    _marker: PhantomData,
-                                    len: stride as usize * video_details.height,
-                                    ptr: {
-                                        NonNull::new(std::mem::transmute(v.data(0).as_ptr()))
-                                            .unwrap()
-                                    },
-                                },
+                                data: PlaneData::new_ref(std::slice::from_raw_parts(
+                                    v.data(0).as_ptr().cast(),
+                                    stride as usize * video_details.height,
+                                )),
                             }
                         },
                         empty_plane(),
@@ -270,7 +223,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
     assert!(dec.receive_frame_with_alloc::<T>(&mut v[opts.lookahead_distance + 1].1));
 
-    // frame_set = convert_fq_to_vec(&*v);
     // TODO double check that order of this is correct
     let x1 = fill_vec(&v);
     let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
@@ -300,8 +252,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             break;
         }
 
-        // frame_set = convert_fq_to_vec(&*v);
-
         let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
         if detector.analyze_next_frame(
@@ -321,8 +271,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
     while v.len() != 1 {
         frameno += 1;
-
-        // frame_set = convert_fq_to_vec(&*v);
 
         let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
