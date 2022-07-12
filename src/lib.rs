@@ -204,15 +204,12 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             .collect::<Vec<_>>()
     };
 
-    // TODO: Handle edge case where number of frames is less than lookahead
-    // for (_, v) in v.iter_mut().take(opts.lookahead_distance + 1) {
     for i in 0..opts.lookahead_distance + 2 {
         v.push((
             i,
             if let Ok(frame) = dec.receive_frame() {
                 frame
             } else {
-                // return keyframes;
                 return DetectionResults {
                     scene_changes: keyframes,
                     frame_count: frameno,
@@ -249,13 +246,11 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         v.push(first);
         let len = v.len();
 
-        // let frame_received = dec.receive_frame_with_alloc::<T>(&mut v[len - 1].1);
         let frame = dec.receive_frame();
 
         // if frame_received {
         if let Ok(frame) = frame {
-            v[len - 1].1 = frame;
-            v[len - 1].0 = new_last;
+            v[len - 1] = (new_last, frame);
         } else {
             v.pop().unwrap();
             break;
