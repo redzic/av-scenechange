@@ -2,7 +2,7 @@ mod y4m;
 
 use std::{mem::ManuallyDrop, ptr::addr_of, sync::Arc, time::Instant};
 
-use av_metrics_decoders::{Decoder, FfmpegDecoder};
+use av_metrics_decoders::{Decoder, FfmpegDecoder, VapoursynthDecoder};
 use ffmpeg::frame;
 pub use rav1e::scenechange::SceneChangeDetector;
 use rav1e::{
@@ -116,7 +116,8 @@ fn align_power_of_two_and_shift(x: usize, n: usize) -> usize {
 ///   This is generally useful for displaying progress, etc.
 #[allow(clippy::needless_pass_by_value)]
 pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
-    dec: &mut FfmpegDecoder,
+    // dec: &mut FfmpegDecoder,
+    dec: &mut VapoursynthDecoder,
     opts: DetectionOptions,
     _frame_limit: Option<usize>,
     progress_callback: Option<&dyn Fn(usize, usize)>,
