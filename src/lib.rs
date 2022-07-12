@@ -59,8 +59,6 @@ pub struct DetectionResults {
     pub scene_changes: Vec<usize>,
     /// The total number of frames read.
     pub frame_count: usize,
-    /// Average speed (FPS)
-    pub speed: f64,
 }
 
 pub fn new_detector<T: Pixel>(
@@ -177,20 +175,12 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         ypad: 0,
     };
 
-    // let format = dec.get_decoder_format();
-
     // Frame index, frame allocation
     let mut v = Vec::<(usize, FrameRef)>::new();
     let mut keyframes: Vec<usize> = vec![0];
 
     let mut frameno: usize = 0;
 
-    // Fill initial spots.
-    // for i in 0..opts.lookahead_distance + 2 {
-    //     v.push((i, frame::Video::new(format, stride, alloc_height)));
-    // }
-
-    // let fill_vec = |frame_queue: &[(usize, frame::Video)]| {
     let fill_vec = |frame_queue: &[(usize, FrameRef)]| {
         frame_queue
             .iter()
@@ -214,15 +204,21 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             .collect::<Vec<_>>()
     };
 
-    let start_time = Instant::now();
-
     // TODO: Handle edge case where number of frames is less than lookahead
     // for (_, v) in v.iter_mut().take(opts.lookahead_distance + 1) {
     for i in 0..opts.lookahead_distance + 2 {
-        // assert!(dec.receive_frame_with_alloc::<T>(v));
-        // assert!(dec.receive_frame().is_ok());
-        // *v = dec.receive_frame().unwrap();
-        v.push((i, dec.receive_frame().unwrap()));
+        v.push((
+            i,
+            if let Ok(frame) = dec.receive_frame() {
+                frame
+            } else {
+                // return keyframes;
+                return DetectionResults {
+                    scene_changes: keyframes,
+                    frame_count: frameno,
+                };
+            },
+        ));
     }
 
     frameno += 1;
@@ -231,9 +227,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     if let Some(progress_fn) = progress_callback {
         progress_fn(frameno, keyframes.len());
     }
-
-    // assert!(dec.receive_frame_with_alloc::<T>(&mut v[opts.lookahead_distance + 1].1));
-    // assert!()
 
     // TODO double check that order of this is correct
     let x1 = fill_vec(&v);
@@ -309,7 +302,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     DetectionResults {
         scene_changes: keyframes,
         frame_count: frameno,
-        speed: frameno as f64 / start_time.elapsed().as_secs_f64(),
     }
 }
 
