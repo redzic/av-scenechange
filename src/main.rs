@@ -88,13 +88,15 @@ fn main() {
     }
 
     let mut ctx = FfmpegDecoder::get_ctx(matches.value_of("INPUT").unwrap().as_ref());
-    let mut dec = FfmpegDecoder::new(&mut ctx).unwrap();
+    let dec = FfmpegDecoder::new(&mut ctx).unwrap();
 
     let bit_depth = dec.get_bit_depth();
     let results = if bit_depth == 8 {
-        detect_scene_changes::<u8>(&mut dec, opts, None, None)
+        // detect_scene_changes::<u8>(&mut dec, opts, None, None)
+        todo!()
     } else {
-        detect_scene_changes::<u16>(&mut dec, opts, None, None)
+        // detect_scene_changes::<u16>(&mut dec, opts, None, None)
+        todo!()
     };
     print!("{}", serde_json::to_string(&results).unwrap());
 

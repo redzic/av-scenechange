@@ -35,6 +35,11 @@ av-metrics-decoders = { path = "../av-metrics/av_metrics_decoders", features = [
     "ffmpeg",
 ] }
 
+[dependencies.vapoursynth]
+git = "https://github.com/YaLTeR/vapoursynth-rs"
+rev = "074417335ff9c139956c62771835798c9a302e67"
+features = ["vsscript-functions", "vapoursynth-functions"]
+
 [features]
 default = ["binary"]
 binary = ["clap", "serialize"]

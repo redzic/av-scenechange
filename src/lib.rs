@@ -1,6 +1,11 @@
 mod y4m;
 
-use std::{mem::ManuallyDrop, ptr::addr_of, sync::Arc, time::Instant};
+use std::{
+    mem::{ManuallyDrop, MaybeUninit},
+    ptr::addr_of,
+    sync::Arc,
+    time::Instant,
+};
 
 use av_metrics_decoders::{Decoder, FfmpegDecoder, VapoursynthDecoder};
 use ffmpeg::frame;
@@ -9,6 +14,7 @@ use rav1e::{
     config::{CpuFeatureLevel, EncoderConfig},
     prelude::{ChromaSamplePosition, Frame, Pixel, Plane, PlaneConfig, PlaneData, Sequence},
 };
+use vapoursynth::prelude::FrameRef;
 
 /// Options determining how to run scene change detection.
 #[derive(Debug, Clone, Copy)]
@@ -58,7 +64,8 @@ pub struct DetectionResults {
 }
 
 pub fn new_detector<T: Pixel>(
-    dec: &mut FfmpegDecoder,
+    // dec: &mut FfmpegDecoder,
+    dec: &mut VapoursynthDecoder,
     opts: DetectionOptions,
 ) -> SceneChangeDetector<T> {
     let video_details = dec.get_video_details();
@@ -124,8 +131,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 ) -> DetectionResults {
     assert!(opts.lookahead_distance >= 1);
 
-    let tmp = 0;
-
     let empty_plane = || Plane::<T> {
         cfg: PlaneConfig {
             alloc_height: 0,
@@ -139,7 +144,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             yorigin: 0,
             ypad: 0,
         },
-        data: unsafe { PlaneData::new_ref(std::slice::from_raw_parts(addr_of!(tmp).cast(), 0)) },
+        data: unsafe { PlaneData::new_ref(&[]) },
     };
 
     let mut detector = new_detector::<T>(dec, opts);
@@ -172,20 +177,21 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         ypad: 0,
     };
 
-    let format = dec.get_decoder_format();
+    // let format = dec.get_decoder_format();
 
     // Frame index, frame allocation
-    let mut v = Vec::<(usize, frame::Video)>::new();
+    let mut v = Vec::<(usize, FrameRef)>::new();
     let mut keyframes: Vec<usize> = vec![0];
 
     let mut frameno: usize = 0;
 
     // Fill initial spots.
-    for i in 0..opts.lookahead_distance + 2 {
-        v.push((i, frame::Video::new(format, stride, alloc_height)));
-    }
+    // for i in 0..opts.lookahead_distance + 2 {
+    //     v.push((i, frame::Video::new(format, stride, alloc_height)));
+    // }
 
-    let fill_vec = |frame_queue: &[(usize, frame::Video)]| {
+    // let fill_vec = |frame_queue: &[(usize, frame::Video)]| {
+    let fill_vec = |frame_queue: &[(usize, FrameRef)]| {
         frame_queue
             .iter()
             .map(|(_, v)| unsafe {
@@ -195,7 +201,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
                             Plane::<T> {
                                 cfg: plane_cfg_luma.clone(),
                                 data: PlaneData::new_ref(std::slice::from_raw_parts(
-                                    v.data(0).as_ptr().cast(),
+                                    v.data_ptr(0).cast(),
                                     stride as usize * video_details.height,
                                 )),
                             }
@@ -211,8 +217,12 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     let start_time = Instant::now();
 
     // TODO: Handle edge case where number of frames is less than lookahead
-    for (_, v) in v.iter_mut().take(opts.lookahead_distance + 1) {
-        assert!(dec.receive_frame_with_alloc::<T>(v));
+    // for (_, v) in v.iter_mut().take(opts.lookahead_distance + 1) {
+    for i in 0..opts.lookahead_distance + 2 {
+        // assert!(dec.receive_frame_with_alloc::<T>(v));
+        // assert!(dec.receive_frame().is_ok());
+        // *v = dec.receive_frame().unwrap();
+        v.push((i, dec.receive_frame().unwrap()));
     }
 
     frameno += 1;
@@ -222,7 +232,8 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         progress_fn(frameno, keyframes.len());
     }
 
-    assert!(dec.receive_frame_with_alloc::<T>(&mut v[opts.lookahead_distance + 1].1));
+    // assert!(dec.receive_frame_with_alloc::<T>(&mut v[opts.lookahead_distance + 1].1));
+    // assert!()
 
     // TODO double check that order of this is correct
     let x1 = fill_vec(&v);
@@ -245,8 +256,12 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         v.push(first);
         let len = v.len();
 
-        let frame_received = dec.receive_frame_with_alloc::<T>(&mut v[len - 1].1);
-        if frame_received {
+        // let frame_received = dec.receive_frame_with_alloc::<T>(&mut v[len - 1].1);
+        let frame = dec.receive_frame();
+
+        // if frame_received {
+        if let Ok(frame) = frame {
+            v[len - 1].1 = frame;
             v[len - 1].0 = new_last;
         } else {
             v.pop().unwrap();
