@@ -121,7 +121,6 @@ fn align_power_of_two_and_shift(x: usize, n: usize) -> usize {
 ///   This is generally useful for displaying progress, etc.
 #[allow(clippy::needless_pass_by_value)]
 pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
-    // dec: &mut FfmpegDecoder,
     dec: &mut VapoursynthDecoder,
     opts: DetectionOptions,
     _frame_limit: Option<usize>,
@@ -159,8 +158,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
                 << SB_SIZE_LOG2) as u32,
         )
     };
-
-    // TODO: handle 422
 
     let plane_cfg_luma: PlaneConfig = PlaneConfig {
         alloc_height: alloc_height as usize,
@@ -248,7 +245,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
         let frame = dec.receive_frame();
 
-        // if frame_received {
         if let Ok(frame) = frame {
             v[len - 1] = (new_last, frame);
         } else {
