@@ -1,10 +1,9 @@
 mod y4m;
 
 use std::{
+    intrinsics::transmute,
     mem::{ManuallyDrop, MaybeUninit},
-    ptr::addr_of,
     sync::Arc,
-    time::Instant,
 };
 
 use av_metrics_decoders::{Decoder, FfmpegDecoder, VapoursynthDecoder};
@@ -182,6 +181,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         frame_queue
             .iter()
             .map(|(_, v)| unsafe {
+                // This parts needs to be wrapped in a trait impl
                 ManuallyDrop::new(Arc::new(Frame::<T> {
                     planes: [
                         {
@@ -202,17 +202,14 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     };
 
     for i in 0..opts.lookahead_distance + 2 {
-        v.push((
-            i,
-            if let Ok(frame) = dec.receive_frame() {
-                frame
-            } else {
-                return DetectionResults {
-                    scene_changes: keyframes,
-                    frame_count: frameno,
-                };
-            },
-        ));
+        if let Some(frame) = dec.receive_frame_initial() {
+            v.push((i, frame));
+        } else {
+            return DetectionResults {
+                scene_changes: keyframes,
+                frame_count: frameno,
+            };
+        }
     }
 
     frameno += 1;
@@ -243,10 +240,9 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         v.push(first);
         let len = v.len();
 
-        let frame = dec.receive_frame();
-
-        if let Ok(frame) = frame {
-            v[len - 1] = (new_last, frame);
+        let frame_received = dec.receive_frame(&mut v[len - 1].1);
+        if frame_received {
+            v[len - 1].0 = new_last;
         } else {
             v.pop().unwrap();
             break;
