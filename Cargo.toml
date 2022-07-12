@@ -28,9 +28,10 @@ console = { version = "0.15", optional = true }
 fern = { version = "0.6", optional = true }
 rust_hawktracer = "0.7.0"
 ffmpeg = { package = "ffmpeg-next", version = "5.0.3" }
-av-metrics-decoders = { git = "https://github.com/redzic/av-metrics", branch = "zerocopy-decode", features = [
-    "ffmpeg",
-] }
+# av-metrics-decoders = { git = "https://github.com/redzic/av-metrics", branch = "zerocopy-decode", features = [
+#     "ffmpeg",
+# ] }
+av-metrics-decoders = { path = "../av-metrics/av_metrics_decoders" }
 
 [features]
 default = ["binary"]
