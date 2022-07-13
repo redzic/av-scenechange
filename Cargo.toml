@@ -13,12 +13,7 @@ y4m = "0.7.0"
 clap = { version = "3.1.6", optional = true }
 serde = { version = "1.0.123", optional = true, features = ["derive"] }
 serde_json = { version = "1.0.62", optional = true }
-# rav1e = { git = "https://github.com/redzic/rav1e", branch = "zerocopy", default-features = false, features = [
-#     "asm",
-#     "scenechange",
-#     "threading",
-# ] }
-rav1e = { path = "../rav1e", default-features = false, features = [
+rav1e = { git = "https://github.com/redzic/rav1e", branch = "zerocopy", default-features = false, features = [
     "asm",
     "scenechange",
     "threading",
@@ -28,10 +23,7 @@ console = { version = "0.15", optional = true }
 fern = { version = "0.6", optional = true }
 rust_hawktracer = "0.7.0"
 ffmpeg = { package = "ffmpeg-next", version = "5.0.3" }
-# av-metrics-decoders = { git = "https://github.com/redzic/av-metrics", branch = "zerocopy-decode", features = [
-#     "ffmpeg",
-# ] }
-av-metrics-decoders = { path = "../av-metrics/av_metrics_decoders", features = [
+av-metrics-decoders = { git = "https://github.com/redzic/av-metrics", branch = "zerocopy-decode-vs", features = [
     "ffmpeg",
 ] }
 
