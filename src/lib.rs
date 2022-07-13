@@ -149,12 +149,11 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
         (vd.width, vd.height)
     };
 
-    let fill_vec2 = |frame_queue: &[(usize, F)]| {
+    let fill_vec = |frame_queue: &[(usize, F)]| {
         frame_queue
             .iter()
             .map(|(_, v)| {
                 ManuallyDrop::new(Arc::new(unsafe {
-                    // transmute::<_, Frame<T>>(D::get_frame_ref::<T>(v))
                     transmute::<_, Frame<T>>(D::get_frame_ref::<T>(v, h, w, stride, alloc_height))
                 }))
             })
@@ -191,7 +190,7 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
         };
     }
 
-    let x1 = fill_vec2(&v);
+    let x1 = fill_vec(&v);
     let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
     if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
@@ -219,7 +218,7 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
             break;
         }
 
-        let x1 = fill_vec2(&v);
+        let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
@@ -235,7 +234,7 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
     while v.len() != 1 {
         frameno += 1;
 
-        let x1 = fill_vec2(&v);
+        let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
