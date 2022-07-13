@@ -31,7 +31,9 @@ ffmpeg = { package = "ffmpeg-next", version = "5.0.3" }
 # av-metrics-decoders = { git = "https://github.com/redzic/av-metrics", branch = "zerocopy-decode", features = [
 #     "ffmpeg",
 # ] }
-av-metrics-decoders = { path = "../av-metrics/av_metrics_decoders" }
+av-metrics-decoders = { path = "../av-metrics/av_metrics_decoders", features = [
+    "ffmpeg",
+] }
 
 [features]
 default = ["binary"]

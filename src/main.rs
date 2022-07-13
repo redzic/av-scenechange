@@ -87,7 +87,7 @@ fn main() {
         };
     }
 
-    let mut ctx = FfmpegDecoder::get_ctx(matches.value_of("INPUT").unwrap().as_ref());
+    let mut ctx = FfmpegDecoder::get_ctx(matches.value_of("INPUT").unwrap().as_ref()).unwrap();
     let mut dec = FfmpegDecoder::new(&mut ctx).unwrap();
 
     let bit_depth = dec.get_bit_depth();

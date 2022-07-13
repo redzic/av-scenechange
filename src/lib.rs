@@ -1,6 +1,6 @@
 mod y4m;
 
-use std::{mem::ManuallyDrop, ptr::addr_of, sync::Arc, time::Instant};
+use std::{mem::ManuallyDrop, ptr::addr_of, sync::Arc};
 
 use av_metrics_decoders::{Decoder, FfmpegDecoder};
 use ffmpeg::frame;
@@ -53,8 +53,6 @@ pub struct DetectionResults {
     pub scene_changes: Vec<usize>,
     /// The total number of frames read.
     pub frame_count: usize,
-    /// Average speed (FPS)
-    pub speed: f64,
 }
 
 pub fn new_detector<T: Pixel>(
@@ -171,13 +169,13 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         ypad: 0,
     };
 
-    let format = dec.get_decoder_format();
-
     // Frame index, frame allocation
     let mut v = Vec::<(usize, frame::Video)>::new();
     let mut keyframes: Vec<usize> = vec![0];
 
     let mut frameno: usize = 0;
+
+    let format = dec.get_decoder_format();
 
     // Fill initial spots.
     for i in 0..opts.lookahead_distance + 2 {
@@ -207,11 +205,13 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             .collect::<Vec<_>>()
     };
 
-    let start_time = Instant::now();
-
-    // TODO: Handle edge case where number of frames is less than lookahead
     for (_, v) in v.iter_mut().take(opts.lookahead_distance + 1) {
-        assert!(dec.receive_frame_with_alloc::<T>(v));
+        if !dec.receive_frame::<T>(v) {
+            return DetectionResults {
+                scene_changes: keyframes,
+                frame_count: frameno,
+            };
+        }
     }
 
     frameno += 1;
@@ -221,7 +221,12 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         progress_fn(frameno, keyframes.len());
     }
 
-    assert!(dec.receive_frame_with_alloc::<T>(&mut v[opts.lookahead_distance + 1].1));
+    if !dec.receive_frame::<T>(&mut v[opts.lookahead_distance + 1].1) {
+        return DetectionResults {
+            scene_changes: keyframes,
+            frame_count: frameno,
+        };
+    }
 
     // TODO double check that order of this is correct
     let x1 = fill_vec(&v);
@@ -244,7 +249,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         v.push(first);
         let len = v.len();
 
-        let frame_received = dec.receive_frame_with_alloc::<T>(&mut v[len - 1].1);
+        let frame_received = dec.receive_frame::<T>(&mut v[len - 1].1);
         if frame_received {
             v[len - 1].0 = new_last;
         } else {
@@ -293,7 +298,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     DetectionResults {
         scene_changes: keyframes,
         frame_count: frameno,
-        speed: frameno as f64 / start_time.elapsed().as_secs_f64(),
     }
 }
 
