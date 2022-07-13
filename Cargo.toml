@@ -28,11 +28,12 @@ av-metrics-decoders = { git = "https://github.com/redzic/av-metrics", branch = "
 ] }
 
 [features]
-default = ["binary"]
+default = ["binary", "vapoursynth_new_api"]
 binary = ["clap", "serialize"]
 serialize = ["serde", "serde_json"]
 devel = ["log", "console", "fern"]
 tracing = ["rust_hawktracer/profiling_enabled"]
+vapoursynth_new_api = ["av-metrics-decoders/vapoursynth_new_api"]
 
 [[bin]]
 name = "av-scenechange"
