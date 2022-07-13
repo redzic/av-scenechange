@@ -1,8 +1,9 @@
 mod y4m;
 
+use std::mem::transmute;
 use std::{mem::ManuallyDrop, sync::Arc};
 
-use av_metrics_decoders::{Decoder, FfmpegDecoder};
+use av_metrics_decoders::Decoder2;
 use ffmpeg::frame;
 pub use rav1e::scenechange::SceneChangeDetector;
 use rav1e::{
@@ -55,8 +56,9 @@ pub struct DetectionResults {
     pub frame_count: usize,
 }
 
-pub fn new_detector<T: Pixel>(
-    dec: &mut FfmpegDecoder,
+pub fn new_detector<F, D: Decoder2<F>, T: Pixel>(
+    // dec: &mut FfmpegDecoder,
+    dec: &mut D,
     opts: DetectionOptions,
 ) -> SceneChangeDetector<T> {
     let video_details = dec.get_video_details();
@@ -113,84 +115,47 @@ fn align_power_of_two_and_shift(x: usize, n: usize) -> usize {
 ///   the number of frames analyzed, and the number of keyframes detected.
 ///   This is generally useful for displaying progress, etc.
 #[allow(clippy::needless_pass_by_value)]
-pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
-    dec: &mut FfmpegDecoder,
+pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
+    dec: &mut D,
     opts: DetectionOptions,
     _frame_limit: Option<usize>,
     progress_callback: Option<&dyn Fn(usize, usize)>,
 ) -> DetectionResults {
     assert!(opts.lookahead_distance >= 1);
 
-    let empty_plane = || Plane::<T> {
-        cfg: PlaneConfig {
-            alloc_height: 0,
-            height: 0,
-            stride: 0,
-            width: 0,
-            xdec: 0,
-            xorigin: 0,
-            xpad: 0,
-            ydec: 0,
-            yorigin: 0,
-            ypad: 0,
-        },
-        data: unsafe { PlaneData::new_ref(&[]) },
-    };
-
-    let mut detector = new_detector::<T>(dec, opts);
+    let mut detector = new_detector::<F, D, T>(dec, opts);
     let video_details = dec.get_video_details();
 
     const SB_SIZE_LOG2: u32 = 6;
     let (alloc_height, stride) = if opts.analysis_speed == SceneDetectionSpeed::Fast {
-        (video_details.height as u32, video_details.width as u32)
+        (video_details.height, video_details.width)
     } else {
         (
             (align_power_of_two_and_shift(video_details.height, SB_SIZE_LOG2 as usize)
-                << SB_SIZE_LOG2) as u32,
+                << SB_SIZE_LOG2),
             (align_power_of_two_and_shift(video_details.width, SB_SIZE_LOG2 as usize)
-                << SB_SIZE_LOG2) as u32,
+                << SB_SIZE_LOG2),
         )
     };
 
-    // TODO: handle 422
-
-    let plane_cfg_luma: PlaneConfig = PlaneConfig {
-        alloc_height: alloc_height as usize,
-        height: video_details.height,
-        stride: stride as usize,
-        width: video_details.width,
-        xdec: 0,
-        xorigin: 0,
-        xpad: 0,
-        ydec: 0,
-        yorigin: 0,
-        ypad: 0,
-    };
-
     // Frame index, frame allocation
-    let mut v = Vec::<(usize, frame::Video)>::new();
+    let mut v = Vec::<(usize, F)>::new();
     let mut keyframes: Vec<usize> = vec![0];
 
     let mut frameno: usize = 0;
 
-    let fill_vec = |frame_queue: &[(usize, frame::Video)]| {
+    let (w, h) = {
+        let vd = dec.get_video_details();
+        (vd.width, vd.height)
+    };
+
+    let fill_vec2 = |frame_queue: &[(usize, F)]| {
         frame_queue
             .iter()
-            .map(|(_, v)| unsafe {
-                ManuallyDrop::new(Arc::new(Frame::<T> {
-                    planes: [
-                        {
-                            Plane::<T> {
-                                cfg: plane_cfg_luma.clone(),
-                                data: PlaneData::new_ref(std::slice::from_raw_parts(
-                                    v.data(0).as_ptr().cast(),
-                                    stride as usize * video_details.height,
-                                )),
-                            }
-                        },
-                        empty_plane(),
-                        empty_plane(),
-                    ],
+            .map(|(_, v)| {
+                ManuallyDrop::new(Arc::new(unsafe {
+                    // transmute::<_, Frame<T>>(D::get_frame_ref::<T>(v))
+                    transmute::<_, Frame<T>>(D::get_frame_ref::<T>(v, h, w, stride, alloc_height))
                 }))
             })
             .collect::<Vec<_>>()
@@ -226,7 +191,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         };
     }
 
-    let x1 = fill_vec(&v);
+    let x1 = fill_vec2(&v);
     let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
     if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
@@ -254,7 +219,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             break;
         }
 
-        let x1 = fill_vec(&v);
+        let x1 = fill_vec2(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
@@ -270,7 +235,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     while v.len() != 1 {
         frameno += 1;
 
-        let x1 = fill_vec(&v);
+        let x1 = fill_vec2(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {

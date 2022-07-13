@@ -73,7 +73,7 @@ dependencies = [
  "num-traits",
  "rayon",
  "thiserror",
- "v_frame 0.2.5 (git+https://github.com/redzic/rav1e?branch=zerocopy)",
+ "v_frame",
 ]
 
 [[package]]
@@ -727,7 +727,7 @@ dependencies = [
  "simd_helpers",
  "system-deps",
  "thiserror",
- "v_frame 0.2.5",
+ "v_frame",
  "vergen",
 ]
 
@@ -1033,20 +1033,6 @@ checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
 [[package]]
 name = "v_frame"
 version = "0.2.5"
-dependencies = [
- "cfg-if",
- "new_debug_unreachable",
- "noop_proc_macro",
- "num-derive",
- "num-traits",
- "rayon",
- "rust_hawktracer",
-]
-
-[[package]]
-name = "v_frame"
-version = "0.2.5"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#0a668514cbe8bffef7b1b9d81336bb53c816c678"
 dependencies = [
  "cfg-if",
  "new_debug_unreachable",
