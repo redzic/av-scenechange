@@ -1,6 +1,6 @@
 mod y4m;
 
-use std::{mem::ManuallyDrop, ptr::addr_of, sync::Arc};
+use std::{mem::ManuallyDrop, sync::Arc};
 
 use av_metrics_decoders::{Decoder, FfmpegDecoder};
 use ffmpeg::frame;
@@ -121,8 +121,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 ) -> DetectionResults {
     assert!(opts.lookahead_distance >= 1);
 
-    let tmp = 0;
-
     let empty_plane = || Plane::<T> {
         cfg: PlaneConfig {
             alloc_height: 0,
@@ -136,7 +134,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             yorigin: 0,
             ypad: 0,
         },
-        data: unsafe { PlaneData::new_ref(std::slice::from_raw_parts(addr_of!(tmp).cast(), 0)) },
+        data: unsafe { PlaneData::new_ref(&[]) },
     };
 
     let mut detector = new_detector::<T>(dec, opts);
@@ -175,13 +173,6 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
     let mut frameno: usize = 0;
 
-    let format = dec.get_decoder_format();
-
-    // Fill initial spots.
-    for i in 0..opts.lookahead_distance + 2 {
-        v.push((i, frame::Video::new(format, stride, alloc_height)));
-    }
-
     let fill_vec = |frame_queue: &[(usize, frame::Video)]| {
         frame_queue
             .iter()
@@ -205,13 +196,18 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
             .collect::<Vec<_>>()
     };
 
-    for (_, v) in v.iter_mut().take(opts.lookahead_distance + 1) {
-        if !dec.receive_frame::<T>(v) {
-            return DetectionResults {
-                scene_changes: keyframes,
-                frame_count: frameno,
-            };
-        }
+    for i in 0..opts.lookahead_distance + 1 {
+        v.push((
+            i,
+            if let Some(frame) = dec.receive_frame_init::<T>(stride, alloc_height) {
+                frame
+            } else {
+                return DetectionResults {
+                    scene_changes: keyframes,
+                    frame_count: frameno,
+                };
+            },
+        ));
     }
 
     frameno += 1;
@@ -221,7 +217,9 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         progress_fn(frameno, keyframes.len());
     }
 
-    if !dec.receive_frame::<T>(&mut v[opts.lookahead_distance + 1].1) {
+    if let Some(frame) = dec.receive_frame_init::<T>(stride, alloc_height) {
+        v.push((opts.lookahead_distance + 1, frame));
+    } else {
         return DetectionResults {
             scene_changes: keyframes,
             frame_count: frameno,
@@ -232,11 +230,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
     let x1 = fill_vec(&v);
     let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
-    if detector.analyze_next_frame(
-        &*y1,
-        frameno as u64,
-        *keyframes.iter().last().unwrap() as u64,
-    ) {
+    if detector.analyze_next_frame(&*y1, frameno as u64, *keyframes.last().unwrap() as u64) {
         keyframes.push(frameno);
     };
 
@@ -259,11 +253,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
         let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
-        if detector.analyze_next_frame(
-            &*y1,
-            frameno as u64,
-            *keyframes.iter().last().unwrap() as u64,
-        ) {
+        if detector.analyze_next_frame(&*y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
         };
 
@@ -280,11 +270,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
-        if detector.analyze_next_frame(
-            &*y1,
-            frameno as u64,
-            *keyframes.iter().last().unwrap() as u64,
-        ) {
+        if detector.analyze_next_frame(&*y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
         };
 
