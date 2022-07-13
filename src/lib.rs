@@ -226,15 +226,18 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         };
     }
 
-    // TODO double check that order of this is correct
     let x1 = fill_vec(&v);
     let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
-    if detector.analyze_next_frame(&*y1, frameno as u64, *keyframes.last().unwrap() as u64) {
+    if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
         keyframes.push(frameno);
     };
 
     frameno += 1;
+
+    if let Some(progress_fn) = progress_callback {
+        progress_fn(frameno, keyframes.len());
+    }
 
     loop {
         let first = v.remove(0);
@@ -253,7 +256,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
 
         let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
-        if detector.analyze_next_frame(&*y1, frameno as u64, *keyframes.last().unwrap() as u64) {
+        if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
         };
 
@@ -270,7 +273,7 @@ pub fn detect_scene_changes<T: Pixel + av_metrics_decoders::Pixel>(
         let x1 = fill_vec(&v);
         let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
 
-        if detector.analyze_next_frame(&*y1, frameno as u64, *keyframes.last().unwrap() as u64) {
+        if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
         };
 
