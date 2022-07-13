@@ -4,11 +4,10 @@ use std::mem::transmute;
 use std::{mem::ManuallyDrop, sync::Arc};
 
 use av_metrics_decoders::Decoder2;
-use ffmpeg::frame;
 pub use rav1e::scenechange::SceneChangeDetector;
 use rav1e::{
     config::{CpuFeatureLevel, EncoderConfig},
-    prelude::{ChromaSamplePosition, Frame, Pixel, Plane, PlaneConfig, PlaneData, Sequence},
+    prelude::{ChromaSamplePosition, Frame, Pixel, Sequence},
 };
 
 /// Options determining how to run scene change detection.
