@@ -13,21 +13,25 @@ y4m = "0.7.0"
 clap = { version = "3.1.6", optional = true }
 serde = { version = "1.0.123", optional = true, features = ["derive"] }
 serde_json = { version = "1.0.62", optional = true }
-rav1e = { git = "https://github.com/redzic/rav1e", branch = "zerocopy", default-features = false, features = [
-    "asm",
-    "scenechange",
-    "threading",
-] }
-# rav1e = { path = "../rav1e", default-features = false, features = [
+# rav1e = { git = "https://github.com/redzic/rav1e", branch = "zerocopy", default-features = false, features = [
 #     "asm",
 #     "scenechange",
 #     "threading",
 # ] }
+rav1e = { path = "../rav1e", default-features = false, features = [
+    "asm",
+    "scenechange",
+    "threading",
+] }
 log = { version = "0.4.14", optional = true }
 console = { version = "0.15", optional = true }
 fern = { version = "0.6", optional = true }
 rust_hawktracer = "0.7.0"
 ffmpeg = { package = "ffmpeg-next", version = "5.0.3" }
+
+[dependencies.vapoursynth]
+version = "0.4.0"
+features = ["vsscript-functions", "vapoursynth-functions"]
 
 [features]
 default = ["binary", "vapoursynth_new_api"]
@@ -35,7 +39,11 @@ binary = ["clap", "serialize"]
 serialize = ["serde", "serde_json"]
 devel = ["log", "console", "fern"]
 tracing = ["rust_hawktracer/profiling_enabled"]
-vapoursynth_new_api = []
+# Build vapoursynth wrapper with new API
+vapoursynth_new_api = [
+    "vapoursynth/vapoursynth-api-32",
+    "vapoursynth/vsscript-api-31",
+]
 
 [[bin]]
 name = "av-scenechange"

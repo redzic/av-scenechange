@@ -1,8 +1,5 @@
-extern crate ffmpeg_next as ffmpeg;
-
 use std::{mem::ManuallyDrop, path::Path};
 
-use av_metrics::video::{decode::*, *};
 use ffmpeg::{
     codec::decoder,
     format,
@@ -12,6 +9,18 @@ use ffmpeg::{
     threading,
     threading::Config,
 };
+use rav1e::prelude::{
+    ChromaSamplePosition,
+    ChromaSampling,
+    Frame,
+    Pixel,
+    Plane,
+    PlaneConfig,
+    PlaneData,
+    Rational,
+};
+
+use crate::decode::{Decoder2, Frame2, VideoDetails};
 
 /// An interface that is used for decoding a video stream using FFmpeg
 pub struct FfmpegDecoder<'a> {
@@ -252,24 +261,6 @@ impl<'a> Decoder2<frame::Video> for FfmpegDecoder<'a> {
         alloc_height: usize,
     ) -> Option<frame::Video> {
         self.receive_frame_init::<T>(stride, alloc_height)
-    }
-
-    fn get_bit_depth(&self) -> usize {
-        self.video_details.bit_depth
-    }
-}
-
-impl<'a> Decoder for FfmpegDecoder<'a> {
-    fn get_video_details(&self) -> VideoDetails {
-        self.video_details
-    }
-
-    // This has been removed temporarily because the changes
-    // to FfmpegDecoder which are needed for receive_frame_with_alloc
-    // make this function not compile because the struct no longer
-    // has the necessary fields
-    fn read_video_frame<T: Pixel>(&mut self) -> Option<Frame<T>> {
-        None
     }
 
     fn get_bit_depth(&self) -> usize {

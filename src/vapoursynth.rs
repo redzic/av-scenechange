@@ -1,14 +1,9 @@
 use std::mem::ManuallyDrop;
 
-use av_metrics::video::{
-    decode::{Decoder2, Frame2, VideoDetails},
-    Frame,
-    Pixel,
-    Plane,
-    PlaneConfig,
-    PlaneData,
-};
+use rav1e::prelude::{Frame, Pixel, Plane, PlaneConfig, PlaneData};
 use vapoursynth::{core::CoreRef, node::Node, prelude::*};
+
+use crate::decode::{Decoder2, Frame2, VideoDetails};
 
 /// Vapoursynth decoder interface
 pub struct VapoursynthDecoder<'a> {

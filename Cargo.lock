@@ -89,6 +89,7 @@ dependencies = [
  "rust_hawktracer",
  "serde",
  "serde_json",
+ "vapoursynth",
  "y4m",
 ]
 
@@ -795,7 +796,6 @@ dependencies = [
 [[package]]
 name = "rav1e"
 version = "0.5.0"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#6a44da2bbc929e35cbd39d6d7fb6665a62e4f031"
 dependencies = [
  "arbitrary",
  "arg_enum_proc_macro",
@@ -1150,7 +1150,6 @@ dependencies = [
 [[package]]
 name = "v_frame"
 version = "0.2.5"
-source = "git+https://github.com/redzic/rav1e?branch=zerocopy#6a44da2bbc929e35cbd39d6d7fb6665a62e4f031"
 dependencies = [
  "cfg-if",
  "new_debug_unreachable",
@@ -1159,6 +1158,28 @@ dependencies = [
  "num-traits",
  "rayon",
  "rust_hawktracer",
+]
+
+[[package]]
+name = "vapoursynth"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c7df702c65dec1cfa3b93f824a1e58d5b0fdb82ac8a722596f43d7214282f56"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "lazy_static",
+ "thiserror",
+ "vapoursynth-sys",
+]
+
+[[package]]
+name = "vapoursynth-sys"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fc59bbb7980ce21ece45bc5b3e316bf27ac164b7b1c273ce4846c29d0642a9c"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]

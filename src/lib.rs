@@ -1,4 +1,7 @@
-mod decode;
+pub mod decode;
+pub mod ffmpeg;
+pub mod vapoursynth;
+
 mod y4m;
 
 use std::{
