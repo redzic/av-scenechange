@@ -3,7 +3,7 @@ use std::mem::ManuallyDrop;
 use rav1e::prelude::{Frame, Pixel, Plane, PlaneConfig, PlaneData};
 use vapoursynth::{core::CoreRef, node::Node, prelude::*};
 
-use crate::decode::{Decoder2, Frame2, VideoDetails};
+use crate::decode::{Decoder, FrameView, VideoDetails};
 
 /// Vapoursynth decoder interface
 pub struct VapoursynthDecoder<'a> {
@@ -103,7 +103,7 @@ impl<'a> VapoursynthDecoder<'a> {
     }
 }
 
-impl<'a> Decoder2<FrameRef<'a>> for VapoursynthDecoder<'a> {
+impl<'a> Decoder<FrameRef<'a>> for VapoursynthDecoder<'a> {
     unsafe fn get_frame_ref<T: Pixel>(
         frame: &FrameRef<'a>,
         height: usize,
@@ -111,7 +111,7 @@ impl<'a> Decoder2<FrameRef<'a>> for VapoursynthDecoder<'a> {
         stride: usize,
         alloc_height: usize,
         strict: bool,
-    ) -> Frame2<T> {
+    ) -> FrameView<T> {
         let stride_adjusted = stride * std::mem::size_of::<T>();
 
         let empty_plane = || Plane::<T> {
@@ -149,7 +149,7 @@ impl<'a> Decoder2<FrameRef<'a>> for VapoursynthDecoder<'a> {
         // the stride
 
         if !strict || (frame.stride(0) == stride_adjusted && frame.height(0) >= alloc_height) {
-            Frame2::Ref(ManuallyDrop::new(Frame::<T> {
+            FrameView::Ref(ManuallyDrop::new(Frame::<T> {
                 planes: [
                     {
                         Plane::<T> {
@@ -184,7 +184,7 @@ impl<'a> Decoder2<FrameRef<'a>> for VapoursynthDecoder<'a> {
                 std::mem::size_of::<T>(),
             );
 
-            Frame2::Owned(f)
+            FrameView::Owned(f)
         }
     }
 

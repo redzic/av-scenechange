@@ -15,7 +15,7 @@ use rav1e::{
     prelude::{ChromaSamplePosition, Frame, Pixel, Sequence},
 };
 
-use crate::decode::{Decoder2, Frame2};
+use crate::decode::{Decoder, FrameView};
 
 /// Options determining how to run scene change detection.
 #[derive(Debug, Clone, Copy)]
@@ -62,7 +62,7 @@ pub struct DetectionResults {
     pub frame_count: usize,
 }
 
-pub fn new_detector<F, D: Decoder2<F>, T: Pixel>(
+pub fn new_detector<F, D: Decoder<F>, T: Pixel>(
     // dec: &mut FfmpegDecoder,
     dec: &mut D,
     opts: DetectionOptions,
@@ -121,7 +121,7 @@ fn align_power_of_two_and_shift(x: usize, n: usize) -> usize {
 ///   the number of frames analyzed, and the number of keyframes detected.
 ///   This is generally useful for displaying progress, etc.
 #[allow(clippy::needless_pass_by_value)]
-pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
+pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
     dec: &mut D,
     opts: DetectionOptions,
     _frame_limit: Option<usize>,
@@ -165,9 +165,8 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
             .map(|(_, v)| {
                 ManuallyDrop::new(Arc::new(unsafe {
                     match D::get_frame_ref::<T>(v, h, w, stride, alloc_height, strict) {
-                        Frame2::Ref(x) => transmute(x),
-                        // hmm is there a memory leak going on in this case
-                        Frame2::Owned(x) => {
+                        FrameView::Ref(x) => transmute(x),
+                        FrameView::Owned(x) => {
                             *should_drop = true;
                             transmute(x)
                         }

@@ -20,7 +20,7 @@ use rav1e::prelude::{
     Rational,
 };
 
-use crate::decode::{Decoder2, Frame2, VideoDetails};
+use crate::decode::{Decoder, FrameView, VideoDetails};
 
 /// An interface that is used for decoding a video stream using FFmpeg
 pub struct FfmpegDecoder<'a> {
@@ -191,7 +191,7 @@ impl<'a> FfmpegDecoder<'a> {
     }
 }
 
-impl<'a> Decoder2<frame::Video> for FfmpegDecoder<'a> {
+impl<'a> Decoder<frame::Video> for FfmpegDecoder<'a> {
     unsafe fn get_frame_ref<T: Pixel>(
         frame: &frame::Video,
         height: usize,
@@ -199,7 +199,7 @@ impl<'a> Decoder2<frame::Video> for FfmpegDecoder<'a> {
         stride: usize,
         alloc_height: usize,
         _strict: bool,
-    ) -> Frame2<T> {
+    ) -> FrameView<T> {
         let empty_plane = || Plane::<T> {
             cfg: PlaneConfig {
                 alloc_height: 0,
@@ -230,7 +230,7 @@ impl<'a> Decoder2<frame::Video> for FfmpegDecoder<'a> {
         };
 
         // Dimensions are always as requested
-        Frame2::Ref(ManuallyDrop::new(Frame::<T> {
+        FrameView::Ref(ManuallyDrop::new(Frame::<T> {
             planes: [
                 {
                     Plane::<T> {

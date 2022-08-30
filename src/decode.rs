@@ -13,15 +13,14 @@ pub struct VideoDetails {
     pub luma_padding: usize,
 }
 
-pub enum Frame2<T: Pixel> {
+pub enum FrameView<T: Pixel> {
     /// Don't call the destructor on this frame.
     Ref(ManuallyDrop<Frame<T>>),
     /// Owned frame.
     Owned(Frame<T>),
 }
 
-pub trait Decoder2<InternalFrame> {
-    // TODO maybe change order of arguments
+pub trait Decoder<InternalFrame> {
     unsafe fn get_frame_ref<T: Pixel>(
         frame: &InternalFrame,
         height: usize,
@@ -29,7 +28,7 @@ pub trait Decoder2<InternalFrame> {
         stride: usize,
         alloc_height: usize,
         strict: bool,
-    ) -> Frame2<T>;
+    ) -> FrameView<T>;
 
     fn receive_frame_init<T: Pixel>(
         &mut self,
