@@ -1,9 +1,11 @@
 mod y4m;
 
-use std::mem::transmute;
-use std::{mem::ManuallyDrop, sync::Arc};
+use std::{
+    mem::{transmute, ManuallyDrop},
+    sync::Arc,
+};
 
-use av_metrics_decoders::Decoder2;
+use av_metrics_decoders::{Decoder2, Frame2};
 pub use rav1e::scenechange::SceneChangeDetector;
 use rav1e::{
     config::{CpuFeatureLevel, EncoderConfig},
@@ -148,12 +150,18 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
         (vd.width, vd.height)
     };
 
+    let strict = opts.analysis_speed == SceneDetectionSpeed::Standard;
+
     let fill_vec = |frame_queue: &[(usize, F)]| {
         frame_queue
             .iter()
             .map(|(_, v)| {
                 ManuallyDrop::new(Arc::new(unsafe {
-                    transmute::<_, Frame<T>>(D::get_frame_ref::<T>(v, h, w, stride, alloc_height))
+                    match D::get_frame_ref::<T>(v, h, w, stride, alloc_height, strict) {
+                        Frame2::Ref(x) => transmute(x),
+                        // hmm is there a memory leak going on in this case
+                        Frame2::Owned(x) => transmute(x),
+                    }
                 }))
             })
             .collect::<Vec<_>>()
