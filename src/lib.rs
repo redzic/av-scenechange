@@ -166,6 +166,9 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
             })
             .collect::<Vec<_>>()
     };
+    fn map_vec<T: Pixel>(x: &[ManuallyDrop<Arc<Frame<T>>>]) -> Vec<&Arc<Frame<T>>> {
+        x.iter().map(|x| &**x).collect::<Vec<_>>()
+    }
 
     for i in 0..opts.lookahead_distance + 1 {
         v.push((
@@ -198,7 +201,7 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
     }
 
     let x1 = fill_vec(&v);
-    let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
+    let y1 = map_vec(&x1);
 
     if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
         keyframes.push(frameno);
@@ -226,7 +229,7 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
         }
 
         let x1 = fill_vec(&v);
-        let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
+        let y1 = map_vec(&x1);
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
         };
@@ -242,7 +245,7 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
         frameno += 1;
 
         let x1 = fill_vec(&v);
-        let y1 = x1.iter().map(|x| &**x).collect::<Vec<_>>();
+        let y1 = map_vec(&x1);
 
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
