@@ -152,7 +152,9 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
 
     let strict = opts.analysis_speed == SceneDetectionSpeed::Standard;
 
-    let fill_vec = |frame_queue: &[(usize, F)]| {
+    let mut should_drop = false;
+
+    let fill_vec = |frame_queue: &[(usize, F)], should_drop: &mut bool| {
         frame_queue
             .iter()
             .map(|(_, v)| {
@@ -160,12 +162,16 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
                     match D::get_frame_ref::<T>(v, h, w, stride, alloc_height, strict) {
                         Frame2::Ref(x) => transmute(x),
                         // hmm is there a memory leak going on in this case
-                        Frame2::Owned(x) => transmute(x),
+                        Frame2::Owned(x) => {
+                            *should_drop = true;
+                            transmute(x)
+                        }
                     }
                 }))
             })
             .collect::<Vec<_>>()
     };
+
     fn map_vec<T: Pixel>(x: &[ManuallyDrop<Arc<Frame<T>>>]) -> Vec<&Arc<Frame<T>>> {
         x.iter().map(|x| &**x).collect::<Vec<_>>()
     }
@@ -200,12 +206,19 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
         };
     }
 
-    let x1 = fill_vec(&v);
+    let mut x1 = fill_vec(&v, &mut should_drop);
     let y1 = map_vec(&x1);
 
     if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
         keyframes.push(frameno);
     };
+
+    if should_drop {
+        drop(y1);
+        while let Some(x) = x1.pop() {
+            let _ = ManuallyDrop::into_inner(x);
+        }
+    }
 
     frameno += 1;
 
@@ -228,11 +241,19 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
             break;
         }
 
-        let x1 = fill_vec(&v);
+        let mut x1 = fill_vec(&v, &mut should_drop);
         let y1 = map_vec(&x1);
+
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
         };
+
+        if should_drop {
+            drop(y1);
+            while let Some(x) = x1.pop() {
+                let _ = ManuallyDrop::into_inner(x);
+            }
+        }
 
         frameno += 1;
 
@@ -244,12 +265,19 @@ pub fn detect_scene_changes<F, D: Decoder2<F>, T: Pixel>(
     while v.len() != 1 {
         frameno += 1;
 
-        let x1 = fill_vec(&v);
+        let mut x1 = fill_vec(&v, &mut should_drop);
         let y1 = map_vec(&x1);
 
         if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
             keyframes.push(frameno);
         };
+
+        if should_drop {
+            drop(y1);
+            while let Some(x) = x1.pop() {
+                let _ = ManuallyDrop::into_inner(x);
+            }
+        }
 
         if let Some(progress_fn) = progress_callback {
             progress_fn(frameno, keyframes.len());
