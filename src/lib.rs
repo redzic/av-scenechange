@@ -1,3 +1,4 @@
+mod decode;
 mod y4m;
 
 use std::{
@@ -5,12 +6,13 @@ use std::{
     sync::Arc,
 };
 
-use av_metrics_decoders::{Decoder2, Frame2};
 pub use rav1e::scenechange::SceneChangeDetector;
 use rav1e::{
     config::{CpuFeatureLevel, EncoderConfig},
     prelude::{ChromaSamplePosition, Frame, Pixel, Sequence},
 };
+
+use crate::decode::{Decoder2, Frame2};
 
 /// Options determining how to run scene change detection.
 #[derive(Debug, Clone, Copy)]

@@ -1,6 +1,5 @@
 use std::{fs::File, io::Write};
 
-use av_metrics_decoders::{Decoder, FfmpegDecoder};
 use av_scenechange::{detect_scene_changes, DetectionOptions, SceneDetectionSpeed};
 use clap::{Arg, Command};
 
@@ -87,15 +86,16 @@ fn main() {
         };
     }
 
-    let mut ctx = FfmpegDecoder::get_ctx(matches.value_of("INPUT").unwrap().as_ref()).unwrap();
-    let mut dec = FfmpegDecoder::new(&mut ctx).unwrap();
+    // let mut ctx = FfmpegDecoder::get_ctx(matches.value_of("INPUT").unwrap().as_ref()).unwrap();
+    // let mut dec = FfmpegDecoder::new(&mut ctx).unwrap();
 
-    let bit_depth = dec.get_bit_depth();
-    let results = if bit_depth == 8 {
-        detect_scene_changes::<u8>(&mut dec, opts, None, None)
-    } else {
-        detect_scene_changes::<u16>(&mut dec, opts, None, None)
-    };
+    // let bit_depth = dec.get_bit_depth();
+    // let results = if bit_depth == 8 {
+    //     detect_scene_changes::<u8>(&mut dec, opts, None, None)
+    // } else {
+    //     detect_scene_changes::<u16>(&mut dec, opts, None, None)
+    // };
+    let results = todo!();
     print!("{}", serde_json::to_string(&results).unwrap());
 
     if matches.is_present("OUTPUT") {

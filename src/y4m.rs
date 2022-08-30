@@ -10,6 +10,8 @@ use rav1e::prelude::{
     Rational,
 };
 
+use crate::decode::VideoDetails;
+
 #[allow(unused)]
 pub(crate) fn get_video_details<R: Read>(dec: &y4m::Decoder<R>) -> VideoDetails {
     let width = dec.get_width();
@@ -27,6 +29,7 @@ pub(crate) fn get_video_details<R: Read>(dec: &y4m::Decoder<R>) -> VideoDetails 
         chroma_sampling,
         chroma_sample_position,
         time_base,
+        luma_padding: 0,
     }
 }
 
@@ -84,16 +87,6 @@ pub fn read_video_frame<R: Read, T: Pixel>(
         .map_err(|e| e.into())
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct VideoDetails {
-    pub width: usize,
-    pub height: usize,
-    pub bit_depth: usize,
-    pub chroma_sampling: ChromaSampling,
-    pub chroma_sample_position: ChromaSamplePosition,
-    pub time_base: Rational,
-}
-
 impl Default for VideoDetails {
     fn default() -> Self {
         VideoDetails {
@@ -103,6 +96,7 @@ impl Default for VideoDetails {
             chroma_sampling: ChromaSampling::Cs420,
             chroma_sample_position: ChromaSamplePosition::Unknown,
             time_base: Rational { num: 30, den: 1 },
+            luma_padding: 0,
         }
     }
 }
