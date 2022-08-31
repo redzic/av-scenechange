@@ -1,4 +1,4 @@
-use std::mem::ManuallyDrop;
+use std::{mem::ManuallyDrop, time::Instant};
 
 use rav1e::prelude::{Frame, Pixel, Plane, PlaneConfig, PlaneData};
 use vapoursynth::{core::CoreRef, node::Node, prelude::*};
@@ -104,6 +104,8 @@ impl<'a> VapoursynthDecoder<'a> {
 }
 
 impl<'a> Decoder<FrameRef<'a>> for VapoursynthDecoder<'a> {
+    // TODO refactor to make this more usable and slightly
+    // less unsafe
     unsafe fn get_frame_ref<T: Pixel>(
         frame: &FrameRef<'a>,
         height: usize,
@@ -111,6 +113,7 @@ impl<'a> Decoder<FrameRef<'a>> for VapoursynthDecoder<'a> {
         stride: usize,
         alloc_height: usize,
         strict: bool,
+        alloc: Option<&mut Plane<T>>,
     ) -> FrameView<T> {
         let stride_adjusted = stride * std::mem::size_of::<T>();
 
@@ -165,31 +168,131 @@ impl<'a> Decoder<FrameRef<'a>> for VapoursynthDecoder<'a> {
                 ],
             }))
         } else {
-            let mut f = Frame::<T> {
-                planes: [
-                    {
-                        Plane::<T> {
-                            cfg: plane_cfg_luma,
-                            data: PlaneData::new(stride * alloc_height),
-                        }
-                    },
-                    empty_plane(),
-                    empty_plane(),
-                ],
-            };
+            // let mut f = Frame::<T> {
+            //     planes: [
+            //         {
+            //             Plane::<T> {
+            //                 cfg: plane_cfg_luma,
+            //                 data: PlaneData::new(stride * alloc_height),
+            //             }
+            //         },
+            //         empty_plane(),
+            //         empty_plane(),
+            //     ],
+            // };
 
-            f.planes[0].copy_from_raw_u8(
+            // TODO add debug assert for stride * alloc_height
+
+            let alloc = alloc.unwrap();
+
+            alloc.copy_from_raw_u8(
                 std::slice::from_raw_parts(frame.data_ptr(0), frame.stride(0) * frame.height(0)),
                 frame.stride(0),
                 std::mem::size_of::<T>(),
             );
 
-            FrameView::Owned(f)
+            FrameView::Ref(ManuallyDrop::new(Frame::<T> {
+                planes: [
+                    {
+                        Plane::<T> {
+                            cfg: plane_cfg_luma,
+                            data: PlaneData::new_ref(&alloc.data[..]),
+                        }
+                    },
+                    empty_plane(),
+                    empty_plane(),
+                ],
+            }))
+        }
+    }
+
+    // honestly... maybe this should be split into multiple functions
+    fn make_copy<T: Pixel>(
+        frame: &FrameRef,
+        height: usize,
+        width: usize,
+        stride: usize,
+        alloc_height: usize,
+        alloc: Option<&mut Plane<T>>,
+    ) -> Option<Plane<T>> {
+        let empty_plane = || Plane::<T> {
+            cfg: PlaneConfig {
+                alloc_height: 0,
+                height: 0,
+                stride: 0,
+                width: 0,
+                xdec: 0,
+                xorigin: 0,
+                xpad: 0,
+                ydec: 0,
+                yorigin: 0,
+                ypad: 0,
+            },
+            // data: PlaneData::new_ref(&[]),
+            data: PlaneData::new(0),
+        };
+
+        let plane_cfg_luma: PlaneConfig = PlaneConfig {
+            alloc_height,
+            height,
+            stride,
+            width,
+            xdec: 0,
+            xorigin: 0,
+            xpad: 0,
+            ydec: 0,
+            yorigin: 0,
+            ypad: 0,
+        };
+
+        if let Some(alloc) = alloc {
+            unsafe {
+                alloc.copy_from_raw_u8(
+                    std::slice::from_raw_parts(
+                        frame.data_ptr(0),
+                        frame.stride(0) * frame.height(0),
+                    ),
+                    frame.stride(0),
+                    std::mem::size_of::<T>(),
+                );
+            }
+            None
+        } else {
+            let mut f = Plane::<T> {
+                cfg: plane_cfg_luma,
+                data: PlaneData::new(stride * alloc_height),
+            };
+
+            unsafe {
+                f.copy_from_raw_u8(
+                    std::slice::from_raw_parts(
+                        frame.data_ptr(0),
+                        frame.stride(0) * frame.height(0),
+                    ),
+                    frame.stride(0),
+                    std::mem::size_of::<T>(),
+                );
+            }
+
+            Some(f)
         }
     }
 
     fn receive_frame<T: Pixel>(&mut self, alloc: &mut FrameRef<'a>) -> bool {
         self.receive_frame(alloc)
+    }
+
+    // should only call this function once
+    fn stride_matches<T: Pixel>(&mut self, stride: usize, alloc_height: usize) -> bool {
+        let frame = if let Ok(frame) = self.node.get_frame(self.frame_idx) {
+            frame
+        } else {
+            return false;
+        };
+
+        let stride_bytes = stride * std::mem::size_of::<T>();
+
+        frame.stride(0) == stride_bytes && frame.height(0) >= alloc_height
     }
 
     fn receive_frame_init<T: Pixel>(

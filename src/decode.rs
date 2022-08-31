@@ -1,6 +1,14 @@
 use std::mem::ManuallyDrop;
 
-use rav1e::prelude::{ChromaSamplePosition, ChromaSampling, Frame, Pixel, Rational};
+use rav1e::prelude::{
+    ChromaSamplePosition,
+    ChromaSampling,
+    Frame,
+    Pixel,
+    Plane,
+    PlaneData,
+    Rational,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VideoDetails {
@@ -28,8 +36,21 @@ pub trait Decoder<InternalFrame> {
         stride: usize,
         alloc_height: usize,
         strict: bool,
+        alloc: Option<&mut Plane<T>>,
     ) -> FrameView<T>;
 
+    fn stride_matches<T: Pixel>(&mut self, stride: usize, alloc_height: usize) -> bool;
+
+    fn make_copy<T: Pixel>(
+        frame: &InternalFrame,
+        height: usize,
+        width: usize,
+        stride: usize,
+        alloc_height: usize,
+        alloc: Option<&mut Plane<T>>,
+    ) -> Option<Plane<T>>;
+
+    // also returns frame copy if stride doesn't match
     fn receive_frame_init<T: Pixel>(
         &mut self,
         stride: usize,

@@ -191,6 +191,8 @@ impl<'a> FfmpegDecoder<'a> {
     }
 }
 
+// TODO these trait methods shouldn't be public,
+// only the traits themselves
 impl<'a> Decoder<frame::Video> for FfmpegDecoder<'a> {
     unsafe fn get_frame_ref<T: Pixel>(
         frame: &frame::Video,
@@ -199,6 +201,7 @@ impl<'a> Decoder<frame::Video> for FfmpegDecoder<'a> {
         stride: usize,
         alloc_height: usize,
         _strict: bool,
+        _alloc: Option<&mut Plane<T>>,
     ) -> FrameView<T> {
         let empty_plane = || Plane::<T> {
             cfg: PlaneConfig {
@@ -245,6 +248,23 @@ impl<'a> Decoder<frame::Video> for FfmpegDecoder<'a> {
                 empty_plane(),
             ],
         }))
+    }
+
+    /// This function should not be called.
+    fn make_copy<T: Pixel>(
+        _frame: &frame::Video,
+        height: usize,
+        width: usize,
+        stride: usize,
+        alloc_height: usize,
+        _alloc: Option<&mut Plane<T>>,
+    ) -> Option<Plane<T>> {
+        None
+    }
+
+    fn stride_matches<T: Pixel>(&mut self, _stride: usize, _alloc_height: usize) -> bool {
+        // Stride always matches
+        true
     }
 
     fn get_video_details(&self) -> VideoDetails {

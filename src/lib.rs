@@ -12,7 +12,7 @@ use std::{
 pub use rav1e::scenechange::SceneChangeDetector;
 use rav1e::{
     config::{CpuFeatureLevel, EncoderConfig},
-    prelude::{ChromaSamplePosition, Frame, Pixel, Sequence},
+    prelude::{ChromaSamplePosition, Frame, Pixel, Plane, PlaneConfig, PlaneData, Sequence},
 };
 
 use crate::decode::{Decoder, FrameView};
@@ -145,7 +145,7 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
     };
 
     // Frame index, frame allocation
-    let mut v = Vec::<(usize, F)>::new();
+    let mut frame_queue = Vec::<(usize, F)>::with_capacity(opts.lookahead_distance + 2);
     let mut keyframes: Vec<usize> = vec![0];
 
     let mut frameno: usize = 0;
@@ -157,19 +157,50 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
 
     let strict = opts.analysis_speed == SceneDetectionSpeed::Standard;
 
-    let mut should_drop = false;
+    // If the stride doesn't match, we have to copy it over to another buffer.
+    let frame_copy_needed = !dec.stride_matches::<T>(stride, alloc_height);
 
-    let fill_vec = |frame_queue: &[(usize, F)], should_drop: &mut bool| {
+    let empty_plane = || Plane::<T> {
+        cfg: PlaneConfig {
+            alloc_height: 0,
+            height: 0,
+            stride: 0,
+            width: 0,
+            xdec: 0,
+            xorigin: 0,
+            xpad: 0,
+            ydec: 0,
+            yorigin: 0,
+            ypad: 0,
+        },
+        // data: PlaneData::new_ref(&[]),
+        data: PlaneData::new(0),
+    };
+
+    let plane_cfg_luma: PlaneConfig = PlaneConfig {
+        alloc_height,
+        height: h,
+        stride,
+        width: w,
+        xdec: 0,
+        xorigin: 0,
+        xpad: 0,
+        ydec: 0,
+        yorigin: 0,
+        ypad: 0,
+    };
+
+    let mut frame_copies: Vec<Arc<Frame<T>>> = Vec::new();
+
+    // converts frame_queue or frame_copies
+    let fill_vec = |frame_queue: &[(usize, F)]| {
         frame_queue
             .iter()
             .map(|(_, v)| {
                 ManuallyDrop::new(Arc::new(unsafe {
-                    match D::get_frame_ref::<T>(v, h, w, stride, alloc_height, strict) {
+                    match D::get_frame_ref::<T>(v, h, w, stride, alloc_height, strict, None) {
                         FrameView::Ref(x) => transmute(x),
-                        FrameView::Owned(x) => {
-                            *should_drop = true;
-                            transmute(x)
-                        }
+                        FrameView::Owned(x) => transmute(x),
                     }
                 }))
             })
@@ -180,8 +211,14 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
         x.iter().map(|x| &**x).collect::<Vec<_>>()
     }
 
+    fn map_vec_copy<T: Pixel>(x: &[Arc<Frame<T>>]) -> Vec<&Arc<Frame<T>>> {
+        x.iter().map(|x| &*x).collect::<Vec<_>>()
+    }
+
     for i in 0..opts.lookahead_distance + 1 {
-        v.push((
+        // receive_frame{_init} does not do frame copy,
+        // so we have to do it ourselves
+        frame_queue.push((
             i,
             if let Some(frame) = dec.receive_frame_init::<T>(stride, alloc_height) {
                 frame
@@ -192,6 +229,24 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
                 };
             },
         ));
+
+        if frame_copy_needed {
+            frame_copies.push(Arc::new(Frame {
+                planes: [
+                    D::make_copy(
+                        &frame_queue.last().unwrap().1,
+                        h,
+                        w,
+                        stride,
+                        alloc_height,
+                        None,
+                    )
+                    .unwrap(),
+                    empty_plane(),
+                    empty_plane(),
+                ],
+            }));
+        }
     }
 
     frameno += 1;
@@ -202,7 +257,25 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
     }
 
     if let Some(frame) = dec.receive_frame_init::<T>(stride, alloc_height) {
-        v.push((opts.lookahead_distance + 1, frame));
+        frame_queue.push((opts.lookahead_distance + 1, frame));
+
+        if frame_copy_needed {
+            frame_copies.push(Arc::new(Frame {
+                planes: [
+                    D::make_copy(
+                        &frame_queue.last().unwrap().1,
+                        h,
+                        w,
+                        stride,
+                        alloc_height,
+                        None,
+                    )
+                    .unwrap(),
+                    empty_plane(),
+                    empty_plane(),
+                ],
+            }));
+        }
     } else {
         return DetectionResults {
             scene_changes: keyframes,
@@ -210,19 +283,33 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
         };
     }
 
-    let mut x1 = fill_vec(&v, &mut should_drop);
-    let y1 = map_vec(&x1);
+    // frame_queue holds ORIGINAL frames
+    let x1;
+    let y1;
+    let y2;
 
-    if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
+    // need to pass in &frame_copies then
+    let x = if frame_copy_needed {
+        y2 = map_vec_copy(&frame_copies);
+        &*y2
+    } else {
+        x1 = fill_vec(&frame_queue);
+        y1 = map_vec(&x1);
+        &*y1
+    };
+
+    // get &Arc<Frame<T>> from frame_copies
+
+    if detector.analyze_next_frame(x, frameno as u64, *keyframes.last().unwrap() as u64) {
         keyframes.push(frameno);
     };
 
-    if should_drop {
-        drop(y1);
-        while let Some(x) = x1.pop() {
-            let _ = ManuallyDrop::into_inner(x);
-        }
-    }
+    // if should_drop {
+    //     drop(y1);
+    //     while let Some(x) = x1.pop() {
+    //         let _ = ManuallyDrop::into_inner(x);
+    //     }
+    // }
 
     frameno += 1;
 
@@ -231,33 +318,61 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
     }
 
     loop {
-        let first = v.remove(0);
-        let new_last = v.last().unwrap().0 + 1;
+        let first = frame_queue.remove(0);
+        let new_last = frame_queue.last().unwrap().0 + 1;
 
-        v.push(first);
-        let len = v.len();
+        frame_queue.push(first);
 
-        let frame_received = dec.receive_frame::<T>(&mut v[len - 1].1);
+        if frame_copy_needed {
+            let first_copy = frame_copies.remove(0);
+            frame_copies.push(first_copy);
+        }
+
+        let len = frame_queue.len();
+
+        let frame_received = dec.receive_frame::<T>(&mut frame_queue[len - 1].1);
         if frame_received {
-            v[len - 1].0 = new_last;
+            if frame_copy_needed {
+                D::make_copy::<T>(
+                    &frame_queue[len - 1].1,
+                    h,
+                    w,
+                    stride,
+                    alloc_height,
+                    // Some(&mut frame_copies[len - 1].planes[0]),
+                    #[allow(mutable_transmutes)]
+                    unsafe {
+                        Some(transmute(&frame_copies[len - 1].planes[0]))
+                    },
+                );
+            }
+            frame_queue[len - 1].0 = new_last;
         } else {
-            v.pop().unwrap();
+            frame_queue.pop().unwrap();
+            if frame_copy_needed {
+                frame_copies.pop().unwrap();
+            }
             break;
         }
 
-        let mut x1 = fill_vec(&v, &mut should_drop);
-        let y1 = map_vec(&x1);
+        // frame_queue holds ORIGINAL frames
+        let x1;
+        let y1;
+        let y2;
 
-        if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
-            keyframes.push(frameno);
+        // need to pass in &frame_copies then
+        let x = if frame_copy_needed {
+            y2 = map_vec_copy(&frame_copies);
+            &*y2
+        } else {
+            x1 = fill_vec(&frame_queue);
+            y1 = map_vec(&x1);
+            &*y1
         };
 
-        if should_drop {
-            drop(y1);
-            while let Some(x) = x1.pop() {
-                let _ = ManuallyDrop::into_inner(x);
-            }
-        }
+        if detector.analyze_next_frame(x, frameno as u64, *keyframes.last().unwrap() as u64) {
+            keyframes.push(frameno);
+        };
 
         frameno += 1;
 
@@ -266,28 +381,36 @@ pub fn detect_scene_changes<F, D: Decoder<F>, T: Pixel>(
         }
     }
 
-    while v.len() != 1 {
+    while frame_queue.len() != 1 {
         frameno += 1;
 
-        let mut x1 = fill_vec(&v, &mut should_drop);
-        let y1 = map_vec(&x1);
+        // frame_queue holds ORIGINAL frames
+        let x1;
+        let y1;
+        let y2;
 
-        if detector.analyze_next_frame(&y1, frameno as u64, *keyframes.last().unwrap() as u64) {
-            keyframes.push(frameno);
+        // need to pass in &frame_copies then
+        let x = if frame_copy_needed {
+            y2 = map_vec_copy(&frame_copies);
+            &*y2
+        } else {
+            x1 = fill_vec(&frame_queue);
+            y1 = map_vec(&x1);
+            &*y1
         };
 
-        if should_drop {
-            drop(y1);
-            while let Some(x) = x1.pop() {
-                let _ = ManuallyDrop::into_inner(x);
-            }
-        }
+        if detector.analyze_next_frame(x, frameno as u64, *keyframes.last().unwrap() as u64) {
+            keyframes.push(frameno);
+        };
 
         if let Some(progress_fn) = progress_callback {
             progress_fn(frameno, keyframes.len());
         }
 
-        v.remove(0);
+        frame_queue.remove(0);
+        if frame_copy_needed {
+            frame_copies.remove(0);
+        }
     }
 
     DetectionResults {
